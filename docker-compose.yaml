@@ -1,0 +1,42 @@
+services:
+  postgres:
+    image: docker.io/postgres:16
+    env_file: .env
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data:z
+    ports:
+      - "127.0.0.1:5432:5432"
+    networks:
+      - internal
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cartei"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  migrate:
+    image: ghcr.io/collegiumacademicum/cartei-db:latest
+    env_file: .env
+    networks:
+      - internal
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: on-failure
+
+  app:
+    image: ghcr.io/collegiumacademicum/cartei:latest
+    env_file: .env
+    networks:
+      - internal
+      - www
+    depends_on:
+      - migrate
+    restart: unless-stopped
+
+networks:
+  internal:
+    driver: bridge
+  www:
+    external: true

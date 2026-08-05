@@ -1,0 +1,13 @@
+[Unit]
+Description=CArtei database backup
+After=cartei.service
+Requires=cartei.service
+
+[Service]
+Type=oneshot
+ExecStartPre=/bin/sh -c "mkdir -p /var/backup/cartei"
+ExecStart=/bin/sh -c "\
+  podman exec cartei_deployment-postgres-1 \
+    pg_dump -U cartei cartei \
+  | gzip > /var/backup/cartei/$(date +%%Y-%%m-%%d).sql.gz"
+ExecStartPost=/bin/sh -c "find /var/backup/cartei -name '*.sql.gz' -mtime +90 -delete"
