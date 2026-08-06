@@ -1,0 +1,14 @@
+services:
+  postgres:
+    image: docker.io/postgres:16
+    env_file: .env
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data:z
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cartei"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
