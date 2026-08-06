@@ -1,0 +1,15 @@
+[Unit]
+Description=CArtei PostgreSQL database
+Requires=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/srv/containers/www/home/cartei
+ExecStart=/usr/bin/podman compose -f docker-compose.db.yaml up -d
+ExecStop=/usr/bin/podman compose -f docker-compose.db.yaml down
+TimeoutStartSec=120
+
+[Install]
+WantedBy=multi-user.target
