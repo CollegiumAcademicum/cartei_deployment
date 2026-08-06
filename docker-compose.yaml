@@ -28,6 +28,8 @@ services:
   app:
     image: ghcr.io/collegiumacademicum/cartei:latest
     env_file: .env
+    volumes:
+      - ./certs:/app/certs:ro,z
     networks:
       - internal
       - www
