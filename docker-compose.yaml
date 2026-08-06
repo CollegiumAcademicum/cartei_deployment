@@ -1,11 +1,11 @@
 services:
   migrate:
-    image: ghcr.io/collegiumacademicum/cartei-db:latest
+    image: docker.io/philippbtz/cartei-db:latest
     env_file: .env
     restart: on-failure
 
   app:
-    image: ghcr.io/collegiumacademicum/cartei:latest
+    image: docker.io/philippbtz/cartei-web:latest
     env_file: .env
     volumes:
       - ./certs:/app/certs:ro,z
