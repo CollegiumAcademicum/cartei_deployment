@@ -5,7 +5,7 @@
 set -euo pipefail
 
 REPO_URL="https://github.com/CollegiumAcademicum/cartei_deployment.git"
-SRV_DIR="/srv/containers/www/home/cartei"
+SRV_DIR="/tank/cartei"
 LINK_DIR="$HOME/cartei"
 SERVICE_NAME="cartei"
 SYSTEMD_DIR="/etc/systemd/system"
