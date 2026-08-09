@@ -99,16 +99,18 @@ age-keygen -o cartei-backup-key.txt          # store this file in a password man
 Copy the `# public key: age1...` value into `AGE_RECIPIENT` in `/tank/cartei/.env`
 on the DB VM. The private key file never touches the server.
 
-**2. Cloudflare R2** — create a bucket (e.g. `cartei-backups`) and an R2 API token
-(Object Read & Write), then configure the rclone remote on the DB VM:
+**2. Cloudflare R2** — create a bucket and an R2 API token (Object Read & Write),
+then configure the rclone remote on the DB VM. Either copy the template:
 ```bash
-RCLONE_CONFIG=/tank/cartei/rclone.conf rclone config
-#  name: r2 | storage: s3 | provider: Cloudflare
-#  access_key_id / secret_access_key: the R2 token
-#  endpoint: https://<ACCOUNT_ID>.r2.cloudflarestorage.com | region: auto
+cp /tank/cartei/rclone.conf.example /tank/cartei/rclone.conf   # fill in token + endpoint
 chmod 600 /tank/cartei/rclone.conf
 ```
-Set `R2_REMOTE=r2:cartei-backups` and `RCLONE_CONFIG=/tank/cartei/rclone.conf` in `.env`.
+or run it interactively (`RCLONE_CONFIG=/tank/cartei/rclone.conf rclone config` →
+name `r2`, storage `s3`, provider `Cloudflare`, endpoint
+`https://<ACCOUNT_ID>.r2.cloudflarestorage.com`, region `auto`).
+
+Set `R2_REMOTE=r2:<bucket>` and `RCLONE_CONFIG=/tank/cartei/rclone.conf` in `.env`
+(the `r2` prefix must match the remote name in `rclone.conf`).
 
 **3. Remote retention** — in the R2 dashboard add a lifecycle rule to expire objects
 after N days (matches local retention; keeps R2 from growing forever).

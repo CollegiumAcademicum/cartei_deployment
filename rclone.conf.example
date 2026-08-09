@@ -1,0 +1,17 @@
+# Cloudflare R2 remote for CArtei backups (DB VM).
+# Copy to rclone.conf, fill in the credentials + endpoint, then chmod 600:
+#     cp rclone.conf.example rclone.conf && chmod 600 rclone.conf
+# rclone.conf itself is gitignored (it holds secrets).
+#
+# access_key_id / secret_access_key : an R2 API token with Object Read & Write.
+# endpoint : from the R2 dashboard. Use the .eu. host for an EU-jurisdiction
+#            bucket, otherwise the plain <ACCOUNT_ID>.r2.cloudflarestorage.com.
+# The remote name below ([r2]) must match R2_REMOTE in .env (R2_REMOTE=r2:<bucket>).
+
+[r2]
+type = s3
+provider = Cloudflare
+access_key_id = CHANGE_ME
+secret_access_key = CHANGE_ME
+endpoint = https://<ACCOUNT_ID>.eu.r2.cloudflarestorage.com
+region = auto
