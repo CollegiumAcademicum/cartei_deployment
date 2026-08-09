@@ -2,8 +2,18 @@
 # CArtei database backup — dump, encrypt (age), upload to Cloudflare R2.
 # Runs on the DB VM (pod0), invoked by cartei-backup.service. Manual run:
 #   sudo /tank/cartei/backup.sh
-# Config comes from the environment (cartei-backup.service loads it from .env).
+# Config comes from the environment; the systemd unit loads it via EnvironmentFile,
+# and for manual runs we load ENV_FILE here too (same whole-line-value semantics
+# as systemd — safe for values with spaces, e.g. an ssh-ed25519 recipient).
 set -euo pipefail
+
+ENV_FILE="${ENV_FILE:-/tank/cartei/.env}"
+if [ -f "$ENV_FILE" ]; then
+    while IFS='=' read -r k v; do
+        case "$k" in ''|'#'*) continue ;; esac
+        [ -n "${!k:-}" ] || export "$k=$v"   # don't override vars already in the env
+    done < "$ENV_FILE"
+fi
 
 BACKUP_DIR="${BACKUP_DIR:-/var/backup/cartei}"
 PG_CONTAINER="${PG_CONTAINER:-cartei_postgres_1}"
