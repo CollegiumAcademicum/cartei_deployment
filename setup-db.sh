@@ -59,7 +59,22 @@ fi
 info "Ensuring data directories exist..."
 mkdir -p data/postgres
 
-# ── 5. systemd services ──────────────────────────────────────────────────────
+# ── 5. SELinux contexts ───────────────────────────────────────────────────────
+# The deploy dir on /tank is labelled default_t, which systemd's init_t may not
+# read/exec — cartei-backup.service reads .env and execs backup.sh directly.
+# Relabel .env as etc_t (readable) and *.sh as bin_t (executable). Re-run this
+# script (or `restorecon -Rv $SRV_DIR`) after a git pull that adds files.
+if command -v semanage >/dev/null 2>&1 && command -v restorecon >/dev/null 2>&1; then
+    info "Applying SELinux file contexts..."
+    semanage fcontext -a -t etc_t "$SRV_DIR/\.env"   2>/dev/null || true  # ignore: rule exists
+    semanage fcontext -a -t bin_t "$SRV_DIR/.*\.sh"  2>/dev/null || true
+    restorecon -Rv "$SRV_DIR" >/dev/null || true
+else
+    command -v getenforce >/dev/null 2>&1 && [ "$(getenforce)" = "Enforcing" ] \
+        && warn "SELinux is Enforcing but semanage/restorecon missing — install policycoreutils-python-utils, else the backup service can't read .env."
+fi
+
+# ── 6. systemd services ──────────────────────────────────────────────────────
 if command -v systemctl >/dev/null 2>&1; then
     info "Installing systemd services..."
     cp "$SRV_DIR/$SERVICE_NAME.service"         "$SYSTEMD_DIR/$SERVICE_NAME.service"

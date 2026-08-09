@@ -115,6 +115,11 @@ Set `R2_REMOTE=r2:<bucket>` and `RCLONE_CONFIG=/tank/cartei/rclone.conf` in `.en
 **3. Remote retention** — in the R2 dashboard add a lifecycle rule to expire objects
 after N days (matches local retention; keeps R2 from growing forever).
 
+**SELinux (CentOS/RHEL):** `setup-db.sh` relabels the deploy dir so systemd can read
+`.env` (`etc_t`) and exec `backup.sh` (`bin_t`) — files on `/tank` default to
+`default_t`, which `init_t` can't read. After a `git pull` that adds files, re-run
+`sudo restorecon -Rv /tank/cartei` (or `sudo bash setup-db.sh`).
+
 Verify after the first run:
 ```bash
 ls -lh /var/backup/cartei/
