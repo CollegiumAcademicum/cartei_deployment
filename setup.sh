@@ -63,13 +63,10 @@ if command -v systemctl >/dev/null 2>&1; then
     cp "$SRV_DIR/$SERVICE_NAME.service"         "$SYSTEMD_DIR/$SERVICE_NAME.service"
     cp "$SRV_DIR/$SERVICE_NAME-update.service"  "$SYSTEMD_DIR/$SERVICE_NAME-update.service"
     cp "$SRV_DIR/$SERVICE_NAME-update.timer"    "$SYSTEMD_DIR/$SERVICE_NAME-update.timer"
-    cp "$SRV_DIR/$SERVICE_NAME-backup.service"  "$SYSTEMD_DIR/$SERVICE_NAME-backup.service"
-    cp "$SRV_DIR/$SERVICE_NAME-backup.timer"    "$SYSTEMD_DIR/$SERVICE_NAME-backup.timer"
 
     systemctl daemon-reload
     systemctl enable "$SERVICE_NAME.service"
     systemctl enable --now "$SERVICE_NAME-update.timer"
-    systemctl enable --now "$SERVICE_NAME-backup.timer"
     info "Services enabled."
 else
     warn "Skipped systemd setup — run manually if needed."

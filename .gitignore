@@ -1,2 +1,5 @@
 data/postgres/
 .env
+rclone.conf
+*-key.txt
+.idea/

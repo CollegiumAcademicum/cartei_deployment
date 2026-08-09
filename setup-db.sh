@@ -23,6 +23,8 @@ command -v podman-compose >/dev/null 2>&1 \
   || die "podman-compose is not installed."
 command -v git            >/dev/null 2>&1 || die "git is not installed."
 command -v systemctl      >/dev/null 2>&1 || warn "systemctl not found — skipping service setup."
+command -v age            >/dev/null 2>&1 || warn "age not installed — needed for encrypted backups (AGE_RECIPIENT)."
+command -v rclone         >/dev/null 2>&1 || warn "rclone not installed — needed for R2 upload (R2_REMOTE)."
 
 # ── 2. clone or update repo ─────────────────────────────────────────────────
 if [ -d "$SRV_DIR/.git" ]; then
@@ -62,9 +64,12 @@ if command -v systemctl >/dev/null 2>&1; then
     info "Installing systemd services..."
     cp "$SRV_DIR/$SERVICE_NAME.service"         "$SYSTEMD_DIR/$SERVICE_NAME.service"
     cp "$SRV_DIR/$SERVICE_NAME-update.service"  "$SYSTEMD_DIR/$SERVICE_NAME-update.service"
+    cp "$SRV_DIR/cartei-backup.service"         "$SYSTEMD_DIR/cartei-backup.service"
+    cp "$SRV_DIR/cartei-backup.timer"           "$SYSTEMD_DIR/cartei-backup.timer"
 
     systemctl daemon-reload
     systemctl enable "$SERVICE_NAME.service"
+    systemctl enable --now cartei-backup.timer
     info "Services enabled."
 else
     warn "Skipped systemd setup — run manually if needed."
