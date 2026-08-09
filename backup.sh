@@ -40,7 +40,9 @@ info "Wrote $(du -h "$out" | cut -f1) $out"
 if [ -n "$R2_REMOTE" ]; then
     command -v rclone >/dev/null 2>&1 || die "rclone not found but R2_REMOTE is set"
     info "Uploading → $R2_REMOTE/$(basename "$out")"
-    rclone copyto "$out" "$R2_REMOTE/$(basename "$out")"
+    # --no-check-dest: filenames are unique timestamps, so never stat the remote
+    # object first (that HeadObject would 403 a write-only token). One PutObject.
+    rclone copyto --no-check-dest "$out" "$R2_REMOTE/$(basename "$out")"
     info "Uploaded."
 else
     warn "R2_REMOTE unset — keeping local copy only."
