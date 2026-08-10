@@ -51,9 +51,9 @@ podman compose -f docker-compose.db.yaml logs -f postgres   # DB VM
 
 ## Updates
 
-App images are pulled and the service restarted **nightly at 03:00** via
+App images are pulled and the service restarted **nightly at 04:00** via
 `cartei-update.timer` (`pull` → `restart cartei.service`, which re-runs
-migrations). Manual:
+migrations) — after the 03:30 backup so a bad update can be restored. Manual:
 ```bash
 podman compose pull && systemctl restart cartei.service
 ```
