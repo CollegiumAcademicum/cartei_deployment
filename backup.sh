@@ -42,6 +42,7 @@ command -v age >/dev/null 2>&1 || die "age not found (required for encryption)"
 out="$BACKUP_DIR/$stamp.sql.gz.age"
 info "Dumping + encrypting → $out"
 podman exec "$PG_CONTAINER" pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" \
+    --exclude-table-data=enrollment_proof \
     | gzip | age -r "$AGE_RECIPIENT" > "$out.partial"
 mv "$out.partial" "$out"
 info "Wrote $(du -h "$out" | cut -f1) $out"
