@@ -136,3 +136,29 @@ rclone copyto r2:cartei-backups/2026-08-09_033000.sql.gz.age ./restore.sql.gz.ag
 age -d -i cartei-backup-key.txt restore.sql.gz.age | gunzip \
   | podman exec -i cartei_postgres_1 psql -U cartei cartei
 ```
+
+## cartei_vision (enrollment-proof auto-verification)
+
+Runs on the **DB VM** as a nightly one-shot Podman Quadlet, installed by
+`setup-db.sh` (`cartei-vision.container` → generated `cartei-vision.service`,
+fired by `cartei-vision.timer` at 04:30). Image:
+`docker.io/philippbtz/cartei-vision:latest` (built from `cartei_vision` +
+`cartei_db` by that repo's `docker.yaml` workflow). The quadlet sets
+`Pull=newer`, so each nightly run pulls a fresh image itself — the DB VM needs
+no update timer. Trust anchors are baked into the image; no host trust dir is
+needed.
+
+One-time setup — create the least-privilege role and set its password:
+```bash
+# grant/revoke SQL lives in cartei_db (least-priv role for cartei_vision)
+podman exec -i cartei_postgres_1 psql -U cartei cartei -c \
+  "ALTER ROLE cartei_vision LOGIN PASSWORD 'CHANGE_ME';"
+nano /tank/cartei/vision.env      # DATABASE_URL with that password
+```
+
+Run manually / check:
+```bash
+sudo systemctl start cartei-vision.service
+sudo journalctl -u cartei-vision.service --no-pager | tail
+systemctl list-timers cartei-vision.timer
+```
