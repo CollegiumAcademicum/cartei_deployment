@@ -57,8 +57,8 @@ fi
 
 # cartei_vision worker connects with its own least-privilege DB role (localhost).
 if [ ! -f vision.env ]; then
-    echo "DATABASE_URL=postgresql+psycopg://cartei_vision:CHANGE_ME@localhost:5432/cartei" > vision.env
-    info "Created vision.env — set the cartei_vision role password before the nightly run."
+    cp vision.env.example vision.env
+    info "Created vision.env from vision.env.example — set the cartei_vision role password before the nightly run."
 else
     info "vision.env already exists — skipping."
 fi
