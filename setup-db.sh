@@ -55,6 +55,14 @@ else
     info ".env already exists — skipping."
 fi
 
+# cartei_vision worker connects with its own least-privilege DB role (localhost).
+if [ ! -f vision.env ]; then
+    echo "DATABASE_URL=postgresql+psycopg://cartei_vision:CHANGE_ME@localhost:5432/cartei" > vision.env
+    info "Created vision.env — set the cartei_vision role password before the nightly run."
+else
+    info "vision.env already exists — skipping."
+fi
+
 # ── 4. data directories ───────────────────────────────────────────────────────
 info "Ensuring data directories exist..."
 mkdir -p data/postgres
@@ -66,7 +74,8 @@ mkdir -p data/postgres
 # script (or `restorecon -Rv $SRV_DIR`) after a git pull that adds files.
 if command -v semanage >/dev/null 2>&1 && command -v restorecon >/dev/null 2>&1; then
     info "Applying SELinux file contexts..."
-    semanage fcontext -a -t etc_t "$SRV_DIR/\.env"   2>/dev/null || true  # ignore: rule exists
+    semanage fcontext -a -t etc_t "$SRV_DIR/\.env"       2>/dev/null || true  # ignore: rule exists
+    semanage fcontext -a -t etc_t "$SRV_DIR/vision\.env" 2>/dev/null || true
     semanage fcontext -a -t bin_t "$SRV_DIR/.*\.sh"  2>/dev/null || true
     restorecon -Rv "$SRV_DIR" >/dev/null || true
 else
@@ -81,10 +90,15 @@ if command -v systemctl >/dev/null 2>&1; then
     cp "$SRV_DIR/$SERVICE_NAME-update.service"  "$SYSTEMD_DIR/$SERVICE_NAME-update.service"
     cp "$SRV_DIR/cartei-backup.service"         "$SYSTEMD_DIR/cartei-backup.service"
     cp "$SRV_DIR/cartei-backup.timer"           "$SYSTEMD_DIR/cartei-backup.timer"
+    cp "$SRV_DIR/cartei-vision.timer"           "$SYSTEMD_DIR/cartei-vision.timer"
+    # Quadlet: systemd generates cartei-vision.service from this .container file.
+    mkdir -p /etc/containers/systemd
+    cp "$SRV_DIR/cartei-vision.container"       /etc/containers/systemd/cartei-vision.container
 
     systemctl daemon-reload
     systemctl enable "$SERVICE_NAME.service"
     systemctl enable --now cartei-backup.timer
+    systemctl enable --now cartei-vision.timer
     info "Services enabled."
 else
     warn "Skipped systemd setup — run manually if needed."

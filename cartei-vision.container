@@ -1,0 +1,24 @@
+[Unit]
+Description=CArtei Vision — enrollment-proof auto-verification
+After=cartei-db.service
+Requires=cartei-db.service
+
+[Container]
+Image=docker.io/philippbtz/cartei-vision:latest
+# Pull a newer image before each nightly run (the DB VM has no update timer).
+Pull=newer
+EnvironmentFile=/tank/cartei/vision.env
+Network=host
+# Trust anchors are baked into the image (package-data). To rotate them without
+# a rebuild, drop new .pem files in a host dir and uncomment:
+#Environment=CARTEI_VISION_TRUST_DIR=/etc/cartei-vision/trust
+#Volume=/tank/cartei/trust:/etc/cartei-vision/trust:ro,Z
+
+[Service]
+Type=oneshot
+Restart=no
+# Pull=newer leaves the old image dangling — reap it so /tank doesn't fill up.
+ExecStopPost=/usr/bin/podman image prune -f
+
+[Install]
+# no WantedBy — the timer starts it, not boot
