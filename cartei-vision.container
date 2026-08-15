@@ -6,8 +6,9 @@ Requires=cartei-db.service
 [Container]
 Image=docker.io/philippbtz/cartei-vision:latest
 EnvironmentFile=/tank/cartei/vision.env
+Environment=CARTEI_VISION_TRUST_DIR=/etc/cartei-vision/trust
 Network=host
-Volume=/tank/cartei/trust:/src/cartei_vision/cartei_vision/trust:ro,Z
+Volume=/tank/cartei/trust:/etc/cartei-vision/trust:ro,Z
 
 [Service]
 Type=oneshot
