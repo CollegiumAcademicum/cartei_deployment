@@ -1,0 +1,17 @@
+[Unit]
+Description=CArtei Vision — enrollment-proof auto-verification
+After=cartei-db.service
+Requires=cartei-db.service
+
+[Container]
+Image=docker.io/philippbtz/cartei-vision:latest
+EnvironmentFile=/tank/cartei/vision.env
+Network=host
+Volume=/tank/cartei/trust:/src/cartei_vision/cartei_vision/trust:ro,Z
+
+[Service]
+Type=oneshot
+Restart=no
+
+[Install]
+# no WantedBy — the timer starts it, not boot
