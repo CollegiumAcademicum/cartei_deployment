@@ -4,7 +4,7 @@ After=cartei-db.service
 Requires=cartei-db.service
 
 [Container]
-Image=docker.io/philippbtz/cartei-vision:latest
+Image=ghcr.io/collegiumacademicum/cartei-vision:latest
 # Pull a newer image before each nightly run (the DB VM has no update timer).
 Pull=newer
 EnvironmentFile=/tank/cartei/vision.env
