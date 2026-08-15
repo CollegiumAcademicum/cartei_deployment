@@ -12,8 +12,17 @@ two VMs. All commands assume the deploy dir `/tank/cartei` (symlinked `~/cartei`
 
 The `app` container depends on `migrate`: on every start, `migrate` runs the
 `cartei_db` Alembic migrations to `head`, then `app` boots. App images come
-from `docker.io/philippbtz/` (`cartei-web`, `cartei-db`); the DB VM uses stock
-`docker.io/postgres:16`.
+from `ghcr.io/collegiumacademicum/` (`cartei-web`, `cartei-db`); the DB VM uses
+stock `docker.io/postgres:16`.
+
+Images are pushed by each repo's `docker.yaml` workflow using the built-in
+`GITHUB_TOKEN` (no Docker Hub secrets). If the GHCR packages are **private**,
+the VMs must authenticate before pulling — once per VM:
+```bash
+echo "$GHCR_PAT" | podman login ghcr.io -u <github-user> --password-stdin
+```
+(`$GHCR_PAT` = a classic PAT with `read:packages`). Making the packages public
+in the org's package settings removes this step.
 
 ## Initial setup
 
@@ -142,7 +151,7 @@ age -d -i cartei-backup-key.txt restore.sql.gz.age | gunzip \
 Runs on the **DB VM** as a nightly one-shot Podman Quadlet, installed by
 `setup-db.sh` (`cartei-vision.container` → generated `cartei-vision.service`,
 fired by `cartei-vision.timer` at 04:30). Image:
-`docker.io/philippbtz/cartei-vision:latest` (built from `cartei_vision` +
+`ghcr.io/collegiumacademicum/cartei-vision:latest` (built from `cartei_vision` +
 `cartei_db` by that repo's `docker.yaml` workflow). The quadlet sets
 `Pull=newer`, so each nightly run pulls a fresh image itself — the DB VM needs
 no update timer. Trust anchors are baked into the image; no host trust dir is
