@@ -41,8 +41,18 @@ command -v age >/dev/null 2>&1 || die "age not found (required for encryption)"
 # Write to .partial then atomic mv, so a crash never leaves a truncated backup.
 out="$BACKUP_DIR/$stamp.sql.gz.age"
 info "Dumping + encrypting → $out"
+# --exclude-table-data drops each table's rows but keeps its schema. The document
+# tables store the uploaded file bytes in a NOT NULL file_data column, so a
+# metadata-only row can't be restored anyway — exclude the whole table's data,
+# same as enrollment_proof. Structure (and every other table) is still dumped.
 podman exec "$PG_CONTAINER" pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" \
     --exclude-table-data=enrollment_proof \
+    --exclude-table-data=datenschutz_document \
+    --exclude-table-data=photoerlaubnis_document \
+    --exclude-table-data=vertraulichkeitserklaerung_document \
+    --exclude-table-data=mietvertrag_document \
+    --exclude-table-data=mietbedingungen_document \
+    --exclude-table-data=wohnungsgeberbescheinigung_document \
     | gzip | age -r "$AGE_RECIPIENT" > "$out.partial"
 mv "$out.partial" "$out"
 info "Wrote $(du -h "$out" | cut -f1) $out"
