@@ -15,6 +15,24 @@ The `app` container depends on `migrate`: on every start, `migrate` runs the
 from `ghcr.io/collegiumacademicum/` (`cartei-web`, `cartei-db`); the DB VM uses
 stock `docker.io/postgres:16`.
 
+### Client IPs are not visible to the app
+
+Inbound HTTPS is routed by the org **ingress VM** (`10.10.0.12`) using nginx
+`stream` + `ssl_preread` — a layer-4 SNI passthrough that never decrypts TLS and
+opens a fresh TCP connection to the backend. So it cannot set `X-Forwarded-For`,
+and every downstream (including the `www.intranet` box where cartei's TLS
+terminates) sees the source IP as the ingress, `10.10.0.12`. That is why the
+admin session list shows `10.10.0.12` for every session — the real client IP is
+lost at the ingress and no app behind it can recover it.
+
+This is cosmetic only (the IP is never used for auth). Recovering real client
+IPs would require enabling the **PROXY protocol** on the shared ingress stream
+server, which applies to *every* service it fronts (office, cloud, mattermost,
+gitlab, …) and would break any backend not configured to accept it — an
+org-wide change, not a cartei one. Until then, use **User-Agent** (which does
+pass through, decrypted at `www.intranet`) plus login time to tell sessions
+apart.
+
 Images are pushed by each repo's `docker.yaml` workflow using the built-in
 `GITHUB_TOKEN` (no Docker Hub secrets). If the GHCR packages are **private**,
 the VMs must authenticate before pulling — once per VM:
