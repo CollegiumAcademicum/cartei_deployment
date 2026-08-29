@@ -164,6 +164,38 @@ age -d -i cartei-backup-key.txt restore.sql.gz.age | gunzip \
   | podman exec -i cartei_postgres_1 psql -U cartei cartei
 ```
 
+## LDAP account provisioning & email SSOT
+
+The **DB (`tenant.email`) is the source of truth** for a tenant's email; FreeIPA
+`mail` is a downstream replica CArtei writes. Mietverwaltung creates the tenant
+first, then provisions a FreeIPA account from the DB row via the "Intranet-Account
+anlegen" button (CArtei → IPA JSON-RPC, `app/ldap_utils.provision_ldap_account`).
+Provisioning needs these `.env` vars on the app VM:
+
+```
+IPA_SERVER=ipa.intranet.ca-hd.de
+IPA_PROVISION_USER=svc-cartei          # service acct with a "User Administrators" role
+IPA_PROVISION_PASSWORD=...
+IPA_VERIFY_SSL=true
+```
+
+**Lock `mail` self-service in FreeIPA** so tenants can't edit their own email out
+of band (all edits must flow through CArtei → DB → LDAP):
+
+```bash
+# remove the mail attribute from the default self-service permission
+ipa selfservice-mod "Self can write own record" \
+  --attrs=givenname --attrs=sn --attrs=... # list WITHOUT mail
+# (or: ipa selfservice-find  → copy the current --attrs, drop 'mail', re-apply)
+```
+
+This does **not** stop a directory *admin* from editing `mail` (admins bypass
+self-service ACIs). That case is caught, not prevented, by the nightly drift
+check: `cartei-drift-check.timer` fires `check_email_drift` **daily at 04:00**
+(`podman compose exec app python manage.py check_email_drift`), logging any tenant
+whose FreeIPA mail diverged from the DB. It only reports — correcting drift is a
+human decision. Enable with `systemctl enable --now cartei-drift-check.timer`.
+
 ## cartei_vision (enrollment-proof auto-verification)
 
 Runs on the **DB VM** as a nightly one-shot Podman Quadlet, installed by
