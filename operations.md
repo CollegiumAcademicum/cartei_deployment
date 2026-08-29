@@ -174,10 +174,34 @@ Provisioning needs these `.env` vars on the app VM:
 
 ```
 IPA_SERVER=ipa.intranet.ca-hd.de
-IPA_PROVISION_USER=svc-cartei          # service acct with a "User Administrators" role
+IPA_PROVISION_USER=svc-cartei
 IPA_PROVISION_PASSWORD=...
 IPA_VERIFY_SSL=true
 ```
+
+The `svc-cartei` service account must get a **least-privilege** role — **not** the
+stock "User Administrators" privilege, which also grants password resets, SSH-key
+management and full `user-mod`. CArtei only needs to add users and write `mail`:
+
+```bash
+# add-user (default perm; handles DNA uidNumber, krb principal, etc.)
+#   -> built-in "System: Add Users"
+# write ONLY the mail attribute (for CArtei -> LDAP email write-through)
+ipa permission-add 'CArtei: Modify user mail' --type=user --attrs=mail --right=write
+
+ipa privilege-add 'CArtei Provisioning'
+ipa privilege-add-permission 'CArtei Provisioning' \
+  --permissions='System: Add Users' --permissions='CArtei: Modify user mail'
+ipa role-add 'CArtei Provisioner'
+ipa role-add-privilege 'CArtei Provisioner' --privileges='CArtei Provisioning'
+ipa role-add-member  'CArtei Provisioner' --services=svc-cartei
+```
+
+NOT granted (deliberately): `System: Modify Users`, `System: Change User password`,
+`System: Manage User SSH Public Keys`, certificate perms, `System: Remove Users`.
+Provisioning uses `user-add --random` (a one-time password set *as part of the add*),
+so it never needs a password-reset privilege; the temp password is returned to CArtei
+for onboarding delivery.
 
 **Lock `mail` self-service in FreeIPA** so tenants can't edit their own email out
 of band (all edits must flow through CArtei → DB → LDAP):
