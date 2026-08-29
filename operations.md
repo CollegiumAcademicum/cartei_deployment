@@ -194,6 +194,9 @@ management and full `user-mod`. CArtei only needs to add users and write `mail`:
 #   -> built-in "System: Add user to default group"
 #   (without it: "Insufficient 'write' privilege to the 'member' attribute of
 #    entry 'cn=ipausers,...'")
+# user-add --random also SETS a password -> needs "System: Change User password"
+#   (without it the user entry is created but the call errors on the password
+#    step: account exists, CArtei never links it, no welcome mail)
 # write ONLY the mail attribute (for CArtei -> LDAP email write-through)
 ipa permission-add 'CArtei: Modify user mail' --type=user --attrs=mail --right=write
 
@@ -202,6 +205,7 @@ ipa privilege-add-permission 'CArtei Provisioning' \
   --permissions='System: Add Users' \
   --permissions='System: Read UPG Definition' \
   --permissions='System: Add user to default group' \
+  --permissions='System: Change User password' \
   --permissions='CArtei: Modify user mail'
 ipa role-add 'CArtei Provisioner'
 ipa role-add-privilege 'CArtei Provisioner' --privileges='CArtei Provisioning'
@@ -210,11 +214,13 @@ ipa role-add-privilege 'CArtei Provisioner' --privileges='CArtei Provisioning'
 ipa role-add-member  'CArtei Provisioner' --users=svc-cartei
 ```
 
-NOT granted (deliberately): `System: Modify Users`, `System: Change User password`,
-`System: Manage User SSH Public Keys`, certificate perms, `System: Remove Users`.
-Provisioning uses `user-add --random` (a one-time password set *as part of the add*),
-so it never needs a password-reset privilege; the temp password is returned to CArtei
-for onboarding delivery.
+NOT granted (deliberately): `System: Modify Users`, `System: Manage User SSH Public
+Keys`, certificate perms, `System: Remove Users`.
+`System: Change User password` IS granted — `user-add --random` sets the one-time
+password as part of the add, which requires it. This is the one sensitive
+capability the account holds (it can set/reset user passwords); emailing a temp
+password to a new tenant is impossible without it. The password is set expired, so
+the tenant must change it on first login; CArtei receives it for onboarding delivery.
 
 **Lock `mail` self-service in FreeIPA** so tenants can't edit their own email out
 of band (all edits must flow through CArtei → DB → LDAP):
