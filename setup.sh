@@ -60,13 +60,16 @@ mkdir -p data/postgres
 # ── 5. systemd services ──────────────────────────────────────────────────────
 if command -v systemctl >/dev/null 2>&1; then
     info "Installing systemd services..."
-    cp "$SRV_DIR/$SERVICE_NAME.service"         "$SYSTEMD_DIR/$SERVICE_NAME.service"
-    cp "$SRV_DIR/$SERVICE_NAME-update.service"  "$SYSTEMD_DIR/$SERVICE_NAME-update.service"
-    cp "$SRV_DIR/$SERVICE_NAME-update.timer"    "$SYSTEMD_DIR/$SERVICE_NAME-update.timer"
+    cp "$SRV_DIR/$SERVICE_NAME.service"              "$SYSTEMD_DIR/$SERVICE_NAME.service"
+    cp "$SRV_DIR/$SERVICE_NAME-update.service"       "$SYSTEMD_DIR/$SERVICE_NAME-update.service"
+    cp "$SRV_DIR/$SERVICE_NAME-update.timer"         "$SYSTEMD_DIR/$SERVICE_NAME-update.timer"
+    cp "$SRV_DIR/$SERVICE_NAME-drift-check.service"  "$SYSTEMD_DIR/$SERVICE_NAME-drift-check.service"
+    cp "$SRV_DIR/$SERVICE_NAME-drift-check.timer"    "$SYSTEMD_DIR/$SERVICE_NAME-drift-check.timer"
 
     systemctl daemon-reload
     systemctl enable "$SERVICE_NAME.service"
     systemctl enable --now "$SERVICE_NAME-update.timer"
+    systemctl enable --now "$SERVICE_NAME-drift-check.timer"
     info "Services enabled."
 else
     warn "Skipped systemd setup — run manually if needed."
@@ -83,3 +86,6 @@ echo "  2. Pull images and start:"
 echo "       cd $SRV_DIR && podman compose pull && systemctl start $SERVICE_NAME.service"
 echo ""
 echo "  After that, the service auto-starts at every boot."
+echo ""
+echo "  For tenant-account provisioning, create the 'CArtei Provisioner' IPA role"
+echo "  and the svc-cartei user, then set the IPA_* values in .env (see operations.md)."
