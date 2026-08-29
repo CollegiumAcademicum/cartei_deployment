@@ -1,7 +1,7 @@
 # CArtei — Operations
 
 Runbook for deploying and running CArtei. Runtime is **Podman + systemd** on
-two VMs. All commands assume the deploy dir `/tank/cartei` (symlinked `~/cartei`).
+two VMs. All commands assume the deploy dir `/var/lib/cartei` (symlinked `~/cartei`).
 
 ## Architecture
 
@@ -44,12 +44,12 @@ in the org's package settings removes this step.
 
 ## Initial setup
 
-Both scripts are idempotent and clone/update the repo into `/tank/cartei`.
+Both scripts are idempotent and clone/update the repo into `/var/lib/cartei`.
 
 **DB VM:**
 ```bash
 curl -fsSL https://raw.githubusercontent.com/CollegiumAcademicum/cartei_deployment/main/setup-db.sh | bash
-nano /tank/cartei/.env          # POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD
+nano /var/lib/cartei/.env          # POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD
 podman compose -f docker-compose.db.yaml pull
 systemctl start cartei-db.service
 ```
@@ -58,7 +58,7 @@ Then **firewall port 5432 to the app VM's IP only** — the DB port is published
 **App VM:**
 ```bash
 curl -fsSL https://raw.githubusercontent.com/CollegiumAcademicum/cartei_deployment/main/setup.sh | bash
-nano /tank/cartei/.env          # fill every CHANGE_ME (incl. DATABASE_URL → DB VM)
+nano /var/lib/cartei/.env          # fill every CHANGE_ME (incl. DATABASE_URL → DB VM)
 podman compose pull
 systemctl start cartei.service
 ```
@@ -113,7 +113,7 @@ pg_dump → gzip → age -r $AGE_RECIPIENT → /var/backup/cartei/<ts>.sql.gz.ag
 - Local retention: `BACKUP_RETENTION_DAYS` (default 90). Remote retention: an R2
   **bucket lifecycle rule** (below) — the script does not prune R2.
 
-Manual backup: `sudo /tank/cartei/backup.sh`
+Manual backup: `sudo /var/lib/cartei/backup.sh`
 
 Self-check (age round-trip + prune logic, no DB/R2): `./test-backup.sh`
 
@@ -123,29 +123,30 @@ Self-check (age round-trip + prune logic, no DB/R2): `./test-backup.sh`
 ```bash
 age-keygen -o cartei-backup-key.txt          # store this file in a password manager
 ```
-Copy the `# public key: age1...` value into `AGE_RECIPIENT` in `/tank/cartei/.env`
+Copy the `# public key: age1...` value into `AGE_RECIPIENT` in `/var/lib/cartei/.env`
 on the DB VM. The private key file never touches the server.
 
 **2. Cloudflare R2** — create a bucket and an R2 API token (Object Read & Write),
 then configure the rclone remote on the DB VM. Either copy the template:
 ```bash
-cp /tank/cartei/rclone.conf.example /tank/cartei/rclone.conf   # fill in token + endpoint
-chmod 600 /tank/cartei/rclone.conf
+cp /var/lib/cartei/rclone.conf.example /var/lib/cartei/rclone.conf   # fill in token + endpoint
+chmod 600 /var/lib/cartei/rclone.conf
 ```
-or run it interactively (`RCLONE_CONFIG=/tank/cartei/rclone.conf rclone config` →
+or run it interactively (`RCLONE_CONFIG=/var/lib/cartei/rclone.conf rclone config` →
 name `r2`, storage `s3`, provider `Cloudflare`, endpoint
 `https://<ACCOUNT_ID>.r2.cloudflarestorage.com`, region `auto`).
 
-Set `R2_REMOTE=r2:<bucket>` and `RCLONE_CONFIG=/tank/cartei/rclone.conf` in `.env`
+Set `R2_REMOTE=r2:<bucket>` and `RCLONE_CONFIG=/var/lib/cartei/rclone.conf` in `.env`
 (the `r2` prefix must match the remote name in `rclone.conf`).
 
 **3. Remote retention** — in the R2 dashboard add a lifecycle rule to expire objects
 after N days (matches local retention; keeps R2 from growing forever).
 
 **SELinux (CentOS/RHEL):** `setup-db.sh` relabels the deploy dir so systemd can read
-`.env` (`etc_t`) and exec `backup.sh` (`bin_t`) — files on `/tank` default to
-`default_t`, which `init_t` can't read. After a `git pull` that adds files, re-run
-`sudo restorecon -Rv /tank/cartei` (or `sudo bash setup-db.sh`).
+`.env` (`etc_t`) and exec `backup.sh` (`bin_t`) — files under `/var/lib/cartei`
+default to `var_lib_t`, which `init_t` won't read/exec directly. After a `git pull`
+that adds files, re-run
+`sudo restorecon -Rv /var/lib/cartei` (or `sudo bash setup-db.sh`).
 
 Verify after the first run:
 ```bash
@@ -238,7 +239,7 @@ One-time setup — create the least-privilege role and set its password:
 # grant/revoke SQL lives in cartei_db (least-priv role for cartei_vision)
 podman exec -i cartei_postgres_1 psql -U cartei cartei -c \
   "ALTER ROLE cartei_vision LOGIN PASSWORD 'CHANGE_ME';"
-nano /tank/cartei/vision.env      # DATABASE_URL with that password
+nano /var/lib/cartei/vision.env      # DATABASE_URL with that password
 ```
 
 Run manually / check:

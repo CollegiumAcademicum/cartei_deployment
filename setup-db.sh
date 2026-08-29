@@ -5,7 +5,7 @@
 set -euo pipefail
 
 REPO_URL="https://github.com/CollegiumAcademicum/cartei_deployment.git"
-SRV_DIR="/tank/cartei"
+SRV_DIR="/var/lib/cartei"
 LINK_DIR="$HOME/cartei"
 SERVICE_NAME="cartei-db"
 SYSTEMD_DIR="/etc/systemd/system"
@@ -68,7 +68,7 @@ info "Ensuring data directories exist..."
 mkdir -p data/postgres
 
 # ── 5. SELinux contexts ───────────────────────────────────────────────────────
-# The deploy dir on /tank is labelled default_t, which systemd's init_t may not
+# The deploy dir /var/lib/cartei is labelled var_lib_t, which systemd's init_t may not
 # read/exec — cartei-backup.service reads .env and execs backup.sh directly.
 # Relabel .env as etc_t (readable) and *.sh as bin_t (executable). Re-run this
 # script (or `restorecon -Rv $SRV_DIR`) after a git pull that adds files.

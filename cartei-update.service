@@ -4,7 +4,7 @@ After=network-online.target
 
 [Service]
 Type=oneshot
-WorkingDirectory=/tank/cartei
+WorkingDirectory=/var/lib/cartei
 ExecStart=/usr/bin/podman compose pull
 ExecStart=/usr/bin/systemctl restart cartei.service
 ExecStart=/usr/bin/podman image prune -f

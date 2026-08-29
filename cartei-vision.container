@@ -7,17 +7,17 @@ Requires=cartei-db.service
 Image=ghcr.io/collegiumacademicum/cartei-vision:latest
 # Pull a newer image before each nightly run (the DB VM has no update timer).
 Pull=newer
-EnvironmentFile=/tank/cartei/vision.env
+EnvironmentFile=/var/lib/cartei/vision.env
 Network=host
 # Trust anchors are baked into the image (package-data). To rotate them without
 # a rebuild, drop new .pem files in a host dir and uncomment:
 #Environment=CARTEI_VISION_TRUST_DIR=/etc/cartei-vision/trust
-#Volume=/tank/cartei/trust:/etc/cartei-vision/trust:ro,Z
+#Volume=/var/lib/cartei/trust:/etc/cartei-vision/trust:ro,Z
 
 [Service]
 Type=oneshot
 Restart=no
-# Pull=newer leaves the old image dangling — reap it so /tank doesn't fill up.
+# Pull=newer leaves the old image dangling — reap it so /var doesn't fill up.
 ExecStopPost=/usr/bin/podman image prune -f
 
 [Install]
