@@ -1,0 +1,9 @@
+[Unit]
+Description=CArtei email drift check (DB SSOT vs FreeIPA mail)
+After=cartei.service
+Requires=cartei.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/tank/cartei
+ExecStart=/usr/bin/podman compose exec -T app python manage.py check_email_drift
