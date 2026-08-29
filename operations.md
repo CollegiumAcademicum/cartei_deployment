@@ -194,7 +194,9 @@ ipa privilege-add-permission 'CArtei Provisioning' \
   --permissions='System: Add Users' --permissions='CArtei: Modify user mail'
 ipa role-add 'CArtei Provisioner'
 ipa role-add-privilege 'CArtei Provisioner' --privileges='CArtei Provisioning'
-ipa role-add-member  'CArtei Provisioner' --services=svc-cartei
+# svc-cartei is a dedicated FreeIPA *user* (password auth, IPA JSON-RPC login) —
+# a separate identity from the read-only LDAP bind account. Not a host/service.
+ipa role-add-member  'CArtei Provisioner' --users=svc-cartei
 ```
 
 NOT granted (deliberately): `System: Modify Users`, `System: Change User password`,
