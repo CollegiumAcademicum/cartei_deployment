@@ -187,12 +187,17 @@ management and full `user-mod`. CArtei only needs to add users and write `mail`:
 ```bash
 # add-user (default perm; handles DNA uidNumber, krb principal, etc.)
 #   -> built-in "System: Add Users"
+# user-add also creates a User Private Group, which needs read on the UPG
+# Managed-Entries definition -> built-in "System: Read UPG Definition"
+#   (without it: "Insufficient access: Could not read UPG Definition originfilter")
 # write ONLY the mail attribute (for CArtei -> LDAP email write-through)
 ipa permission-add 'CArtei: Modify user mail' --type=user --attrs=mail --right=write
 
 ipa privilege-add 'CArtei Provisioning'
 ipa privilege-add-permission 'CArtei Provisioning' \
-  --permissions='System: Add Users' --permissions='CArtei: Modify user mail'
+  --permissions='System: Add Users' \
+  --permissions='System: Read UPG Definition' \
+  --permissions='CArtei: Modify user mail'
 ipa role-add 'CArtei Provisioner'
 ipa role-add-privilege 'CArtei Provisioner' --privileges='CArtei Provisioning'
 # svc-cartei is a dedicated FreeIPA *user* (password auth, IPA JSON-RPC login) —
