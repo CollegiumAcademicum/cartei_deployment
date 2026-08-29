@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # CArtei database backup — dump, encrypt (age), upload to Cloudflare R2.
 # Runs on the DB VM (pod0), invoked by cartei-backup.service. Manual run:
-#   sudo /var/lib/cartei/backup.sh
+#   sudo /srv/containers/www/home/cartei/backup.sh
 # Config comes from the environment; the systemd unit loads it via EnvironmentFile,
 # and for manual runs we load ENV_FILE here too (same whole-line-value semantics
 # as systemd — safe for values with spaces, e.g. an ssh-ed25519 recipient).
 set -euo pipefail
 
-ENV_FILE="${ENV_FILE:-/var/lib/cartei/.env}"
+ENV_FILE="${ENV_FILE:-/srv/containers/www/home/cartei/.env}"
 if [ -f "$ENV_FILE" ]; then
     while IFS='=' read -r k v; do
         case "$k" in ''|'#'*) continue ;; esac

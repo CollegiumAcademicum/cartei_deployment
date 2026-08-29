@@ -5,6 +5,6 @@ Requires=cartei-db.service
 
 [Service]
 Type=oneshot
-EnvironmentFile=/var/lib/cartei/.env
-WorkingDirectory=/var/lib/cartei
-ExecStart=/var/lib/cartei/backup.sh
+EnvironmentFile=/srv/containers/www/home/cartei/.env
+WorkingDirectory=/srv/containers/www/home/cartei
+ExecStart=/srv/containers/www/home/cartei/backup.sh
