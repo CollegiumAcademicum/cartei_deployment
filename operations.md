@@ -190,6 +190,10 @@ management and full `user-mod`. CArtei only needs to add users and write `mail`:
 # user-add also creates a User Private Group, which needs read on the UPG
 # Managed-Entries definition -> built-in "System: Read UPG Definition"
 #   (without it: "Insufficient access: Could not read UPG Definition originfilter")
+# ...and adds the user to the default group (ipausers), writing its member attr
+#   -> built-in "System: Add user to default group"
+#   (without it: "Insufficient 'write' privilege to the 'member' attribute of
+#    entry 'cn=ipausers,...'")
 # write ONLY the mail attribute (for CArtei -> LDAP email write-through)
 ipa permission-add 'CArtei: Modify user mail' --type=user --attrs=mail --right=write
 
@@ -197,6 +201,7 @@ ipa privilege-add 'CArtei Provisioning'
 ipa privilege-add-permission 'CArtei Provisioning' \
   --permissions='System: Add Users' \
   --permissions='System: Read UPG Definition' \
+  --permissions='System: Add user to default group' \
   --permissions='CArtei: Modify user mail'
 ipa role-add 'CArtei Provisioner'
 ipa role-add-privilege 'CArtei Provisioner' --privileges='CArtei Provisioning'
