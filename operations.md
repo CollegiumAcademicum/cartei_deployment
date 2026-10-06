@@ -239,6 +239,28 @@ check: `cartei-drift-check.timer` fires `check_email_drift` **daily at 04:00**
 whose FreeIPA mail diverged from the DB. It only reports — correcting drift is a
 human decision. Enable with `systemctl enable --now cartei-drift-check.timer`.
 
+## Superuser / impersonation access
+
+Django's `is_superuser` is bound to the LDAP group in `CARTEI_SUPERUSER_GROUP`
+(default `cn=cartei_superuser,...`). On every LDAP login `_sync_groups` sets the
+flag **authoritatively**: a member becomes superuser, a non-member is revoked.
+The binding is **always enforced** — leaving the `.env` value blank falls back to
+the standard DN, it does **not** disable it. So grant/revoke impersonation rights
+purely by managing membership of `cartei_superuser` in FreeIPA; no `auth_user`
+edits or redeploys needed.
+
+```bash
+ipa group-add cartei_superuser --desc "CArtei: Django superuser (impersonation)"
+ipa group-add-member cartei_superuser --users=<uid>   # grant (effective next login)
+ipa group-remove-member cartei_superuser --users=<uid> # revoke (effective next login)
+```
+
+Superuser currently gates only user impersonation (the "Benutzerübernahme" navbar
+link → start/stop). It does not grant Mietverwaltung/admin capabilities — those
+come from the `CARTEI_*_GROUP` role groups. `is_staff` is unused (the Django admin
+site is not enabled). The local dev superuser (`seed_dev_data`) is unaffected: it
+authenticates via Django's ModelBackend, not LDAP, so this sync never touches it.
+
 ## cartei_vision (enrollment-proof auto-verification)
 
 Runs on the **DB VM** as a nightly one-shot Podman Quadlet, installed by
