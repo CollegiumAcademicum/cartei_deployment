@@ -239,27 +239,36 @@ check: `cartei-drift-check.timer` fires `check_email_drift` **daily at 04:00**
 whose FreeIPA mail diverged from the DB. It only reports — correcting drift is a
 human decision. Enable with `systemctl enable --now cartei-drift-check.timer`.
 
-## Superuser / impersonation access
+## Impersonation access (superuser)
 
-Django's `is_superuser` is bound to the LDAP group in `CARTEI_SUPERUSER_GROUP`
-(default `cn=cartei_superuser,...`). On every LDAP login `_sync_groups` sets the
-flag **authoritatively**: a member becomes superuser, a non-member is revoked.
+Django's `is_superuser` is bound to the LDAP group in `CARTEI_IMPERSONATION_GROUP`
+(default `cn=cartei_impersonation,...`). On every LDAP login `_sync_groups` sets
+the flag **authoritatively**: a member becomes superuser, a non-member is revoked.
 The binding is **always enforced** — leaving the `.env` value blank falls back to
-the standard DN, it does **not** disable it. So grant/revoke impersonation rights
-purely by managing membership of `cartei_superuser` in FreeIPA; no `auth_user`
-edits or redeploys needed.
+the standard DN, it does **not** disable it. So grant/revoke by managing membership
+of `cartei_impersonation` in FreeIPA; no `auth_user` edits or redeploys needed.
 
 ```bash
-ipa group-add cartei_superuser --desc "CArtei: Django superuser (impersonation)"
-ipa group-add-member cartei_superuser --users=<uid>   # grant (effective next login)
-ipa group-remove-member cartei_superuser --users=<uid> # revoke (effective next login)
+ipa group-add cartei_impersonation --desc "CArtei: user impersonation (is_superuser)"
+ipa group-add-member cartei_impersonation --users=<uid>    # grant (effective next login)
+ipa group-remove-member cartei_impersonation --users=<uid> # revoke (effective next login)
 ```
 
-Superuser currently gates only user impersonation (the "Benutzerübernahme" navbar
-link → start/stop). It does not grant Mietverwaltung/admin capabilities — those
-come from the `CARTEI_*_GROUP` role groups. `is_staff` is unused (the Django admin
-site is not enabled). The local dev superuser (`seed_dev_data`) is unaffected: it
-authenticates via Django's ModelBackend, not LDAP, so this sync never touches it.
+**`is_superuser` grants exactly one thing in CArtei: user impersonation** (the
+"Benutzerübernahme" navbar link → start/stop). Nothing else keys off it — the app
+has no other superuser checks and does **not** use Django's permission framework,
+so the usual superuser "god-mode" is inert here. It does **not** grant
+Mietverwaltung/admin/cluster capabilities; those come solely from the
+`CARTEI_*_GROUP` role groups (`@require_group` does not bypass for superusers).
+`is_staff` is unused (the Django admin site is not enabled).
+
+Caveat: impersonation means "act as any non-superuser user," so a member can
+assume e.g. a Mietverwaltung user's session and thereby wield that user's rights
+for the session. The flag grants only the impersonation entry point, but that is
+itself a high-privilege capability — keep `cartei_impersonation` membership tight.
+
+The local dev superuser (`seed_dev_data`) is unaffected: it authenticates via
+Django's ModelBackend, not LDAP, so this sync never touches it.
 
 ## cartei_vision (enrollment-proof auto-verification)
 
