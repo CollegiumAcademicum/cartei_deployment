@@ -254,12 +254,19 @@ ipa group-add-member cartei_impersonation --users=<uid>    # grant (effective ne
 ipa group-remove-member cartei_impersonation --users=<uid> # revoke (effective next login)
 ```
 
-Membership grants exactly one thing: user impersonation (the "Benutzerübernahme"
-navbar link → start/stop). It does **not** grant Mietverwaltung/admin/cluster
-capabilities — those come from the other `CARTEI_*_GROUP` role groups. We
+Membership grants exactly one thing: user impersonation. It does **not** grant
+Mietverwaltung/admin/cluster capabilities — those come from the other
+`CARTEI_*_GROUP` role groups — and it does **not require** them either. We
 deliberately avoid Django's `is_superuser` for this: it is a loaded flag that the
 Django admin, DRF, and many packages honor implicitly, so a plain group keeps the
 blast radius to just the checks that name it.
+
+The UI entry point (the "Benutzerübernahme" link) lives on the admin portal,
+which is admin-only. So a member of `cartei_impersonation` who is **not** an admin
+won't *see* the link — but they are **not forbidden**: the impersonation views
+themselves are not admin-gated, so impersonation works without admin rights (the
+link is merely hidden). If you want someone to impersonate, the impersonation
+group alone is enough; admin is not required.
 
 Caveat: impersonation means "act as any member who is not themselves in
 `cartei_impersonation`," so a member can assume e.g. a Mietverwaltung user's
