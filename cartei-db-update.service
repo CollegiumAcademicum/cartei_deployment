@@ -4,6 +4,6 @@ After=network-online.target
 
 [Service]
 Type=oneshot
-WorkingDirectory=/srv/containers/www/home/cartei
+WorkingDirectory=/tank/cartei
 ExecStart=/usr/bin/podman compose -f docker-compose.db.yaml pull
 ExecStart=/usr/bin/systemctl restart cartei-db.service
