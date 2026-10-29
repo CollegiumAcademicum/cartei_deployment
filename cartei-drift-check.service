@@ -5,5 +5,5 @@ Requires=cartei.service
 
 [Service]
 Type=oneshot
-WorkingDirectory=/srv/containers/www/home/cartei
+WorkingDirectory=/tank/cartei
 ExecStart=/usr/bin/podman compose exec -T app python manage.py check_email_drift

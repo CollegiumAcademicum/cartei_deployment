@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Bootstrap script for the DB VM — run once on a fresh server.
+# Bootstrap script for pod0 — run once on a fresh server.
 # Can be executed before the repo exists:
 #   curl -fsSL https://raw.githubusercontent.com/CollegiumAcademicum/cartei_deployment/main/setup-db.sh | bash
 set -euo pipefail
 
 REPO_URL="https://github.com/CollegiumAcademicum/cartei_deployment.git"
-SRV_DIR="${CARTEI_DIR:-/srv/containers/www/home/cartei}"
+SRV_DIR="${CARTEI_DIR:-/tank/cartei}"
 LINK_DIR="$HOME/cartei"
 SERVICE_NAME="cartei-db"
 SYSTEMD_DIR="/etc/systemd/system"
@@ -116,4 +116,3 @@ echo "       cd $SRV_DIR && podman compose -f docker-compose.db.yaml pull && sys
 echo ""
 echo "  After that, the service auto-starts at every boot."
 echo ""
-echo "  NOTE: Ensure your firewall allows port 5432 only from the app VM's IP."

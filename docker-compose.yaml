@@ -1,3 +1,6 @@
+# Runs on pod0 next to docker-compose.db.yaml. Postgres is reached by container
+# name over cartei_default (created by cartei-db.service); Caddy (/tank/caddy)
+# reverse-proxies to cartei_app_1:8000 over systemd-caddy.
 services:
   migrate:
     image: ghcr.io/collegiumacademicum/cartei-db:latest
@@ -10,11 +13,16 @@ services:
     volumes:
       - ./certs:/app/certs:ro,z
     networks:
-      - www
+      - default
+      - caddy
     depends_on:
       - migrate
     restart: unless-stopped
 
 networks:
-  www:
+  default:
+    name: cartei_default
+    external: true
+  caddy:
+    name: systemd-caddy
     external: true
