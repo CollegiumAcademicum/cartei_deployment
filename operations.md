@@ -63,7 +63,7 @@ podman compose pull && systemctl start cartei.service
 Then add the site to `/tank/caddy/Caddyfile` (`<host> { reverse_proxy http://cartei_app_1.dns.podman:8000 }`,
 `<host>` matching `ALLOWED_HOSTS`) and reload Caddy.
 
-`setup-db.sh` installs the backup + vision timers, `setup.sh` the update and drift-check timers.
+`setup-db.sh` installs the backup + vision timers, `setup.sh` the update timer.
 
 ## Day-to-day
 
@@ -199,13 +199,43 @@ One-time Keycloak setup (admin console, realm `collegium`):
 5. Verify: **Clients → cartei → Client scopes → Evaluate**, pick a user → *Generated user info*
    must contain `preferred_username`, `ipaUniqueID` and `groups` (incl. `confidentiality_clearance`).
 
-## LDAP account provisioning & email SSOT
+## Email: FreeIPA is the source of truth
 
-The **DB (`tenant.email`) is the source of truth** for a tenant's email; FreeIPA
-`mail` is a downstream replica CArtei writes. Mietverwaltung creates the tenant
-first, then provisions a FreeIPA account from the DB row via the "Intranet-Account
-anlegen" button (CArtei → IPA JSON-RPC, `app/ldap_utils.provision_ldap_account`).
-Provisioning needs these `.env` vars on pod0:
+Decided 2026-10-30 (CArtei#70), replacing the earlier "DB is SSOT" model and its
+nightly drift check.
+
+| Tenant | Where the email lives | `tenant.email` is |
+|--------|-----------------------|-------------------|
+| has an intranet account (`intranet_uuid` set) | FreeIPA `mail` | a **cache** |
+| no account yet / account deleted (moved out) | only CArtei | the **only copy** |
+
+How the cache stays current (`tenant.email_refreshed_at` = last confirmed against FreeIPA, `NULL` = never):
+
+- **Before every send**, `app/emails.current_email(tenant)` looks the account up in
+  LDAP by `ipaUniqueID` and refreshes `tenant.email`. No account, or LDAP down →
+  the cached value is used (logged), so mail still goes out.
+- **At every login** the Keycloak `email` claim refreshes it.
+- **Edits in CArtei** (tenant page, profile setup) are **written through** to
+  FreeIPA first (`user_mod`, as `svc-cartei`); only then is the DB saved. If
+  FreeIPA refuses, the edit is rejected with an error — saving locally would be
+  undone by the next refresh.
+- **Edits outside CArtei** (FreeIPA UI, Keycloak account page — the federation is
+  WRITABLE) are legitimate and simply picked up by the next refresh. Do **not**
+  lock `mail` self-service in FreeIPA.
+- Pages that only *display* an email show the cache (no LDAP call per page view).
+- `email_refreshed_at`-only updates write no `entity_history` row (the audit
+  trigger skips updates that touch only excluded columns).
+
+Rule of thumb for new code: anything that **sends** mail resolves the recipient via
+`current_email(tenant)`, never `tenant.email` directly.
+
+## LDAP account provisioning
+
+Mietverwaltung creates the tenant first, then provisions a FreeIPA account from
+the DB row via the "Intranet-Account anlegen" button (CArtei → IPA JSON-RPC,
+`app/ldap_utils.provision_ldap_account`), which sets FreeIPA `mail` from
+`tenant.email`. Admins can instead link an existing account on the tenant page
+("Verknüpfen"). Provisioning and the email write-through need these `.env` vars on pod0:
 
 ```
 IPA_SERVER=ipa.intranet.ca-hd.de
@@ -231,7 +261,7 @@ management and full `user-mod`. CArtei only needs to add users and write `mail`:
 # user-add --random also SETS a password -> needs "System: Change User password"
 #   (without it the user entry is created but the call errors on the password
 #    step: account exists, CArtei never links it, no welcome mail)
-# write ONLY the mail attribute (for CArtei -> LDAP email write-through)
+# write ONLY the mail attribute (CArtei -> FreeIPA email write-through on edit)
 ipa permission-add 'CArtei: Modify user mail' --type=user --attrs=mail --right=write
 
 ipa privilege-add 'CArtei Provisioning'
@@ -256,22 +286,11 @@ capability the account holds (it can set/reset user passwords); emailing a temp
 password to a new tenant is impossible without it. The password is set expired, so
 the tenant must change it on first login; CArtei receives it for onboarding delivery.
 
-**Lock `mail` self-service in FreeIPA** so tenants can't edit their own email out
-of band (all edits must flow through CArtei → DB → LDAP):
-
+On an existing pod0, retire the old drift check once (re-running `setup.sh` does it too):
 ```bash
-# remove the mail attribute from the default self-service permission
-ipa selfservice-mod "Self can write own record" \
-  --attrs=givenname --attrs=sn --attrs=... # list WITHOUT mail
-# (or: ipa selfservice-find  → copy the current --attrs, drop 'mail', re-apply)
+sudo systemctl disable --now cartei-drift-check.timer
+sudo rm -f /etc/systemd/system/cartei-drift-check.{service,timer} && sudo systemctl daemon-reload
 ```
-
-This does **not** stop a directory *admin* from editing `mail` (admins bypass
-self-service ACIs). That case is caught, not prevented, by the nightly drift
-check: `cartei-drift-check.timer` fires `check_email_drift` **daily at 04:00**
-(`podman compose exec app python manage.py check_email_drift`), logging any tenant
-whose FreeIPA mail diverged from the DB. It only reports — correcting drift is a
-human decision. Enable with `systemctl enable --now cartei-drift-check.timer`.
 
 ## Impersonation access
 
