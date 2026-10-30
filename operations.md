@@ -164,6 +164,41 @@ age -d -i cartei-backup-key.txt restore.sql.gz.age | gunzip \
   | podman exec -i cartei_postgres_1 psql -U cartei cartei
 ```
 
+## Login (Keycloak)
+
+Login is OIDC against Keycloak, realm `collegium` (`https://id.ca-hd.de/realms/collegium`),
+which federates FreeIPA. CArtei never sees a password. LDAP is still used by the
+read-only `service_cartei` bind for member lookups (admin portal sync, AG-Abfragen)
+and by provisioning — not for login.
+
+Identity is FreeIPA's **`ipaUniqueID`** (claim of the same name): a login finds
+the tenant by `intranet_uuid`, creates it on first login, and follows uid renames
+(`preferred_username`). A login is refused if the claim is missing, the user is
+not in `LDAP_REQUIRE_GROUP` (`confidentiality_clearance`), or an existing tenant
+has the same uid but a different uuid (fix: relink on the tenant page, admin only).
+Rights groups are matched by the **cn** of the `CARTEI_*_GROUP` DNs against the
+`groups` claim. Groups sync at login only.
+
+`.env`: `KEYCLOAK_REALM_URL`, `OIDC_RP_CLIENT_ID` (default `cartei`), `OIDC_RP_CLIENT_SECRET`.
+
+One-time Keycloak setup (admin console, realm `collegium`):
+
+1. **User federation → ldap → Mappers → Add mapper**: type `user-attribute-ldap-mapper`,
+   name/User Model Attribute/LDAP Attribute all `ipaUniqueID`, Read only on.
+   Keycloak ≥ 24 (declarative user profile): also add `ipaUniqueID` under
+   **Realm settings → User profile** (admin view/edit only), else it is dropped.
+   Check that the group mapper imports `confidentiality_clearance` and the `cartei_*` / `ag.*` groups.
+2. **Clients → Create client**: OpenID Connect, Client ID `cartei`; Client authentication **on**;
+   Standard flow only. Valid redirect URIs `https://cartei.ca-hd.de/oidc/callback/`,
+   Valid post logout redirect URIs `https://cartei.ca-hd.de/`, Web origins `https://cartei.ca-hd.de`.
+   **Credentials** tab → copy the secret into `OIDC_RP_CLIENT_SECRET`.
+3. **Clients → cartei → Client scopes → cartei-dedicated → Add mapper → By configuration**:
+   - *Group Membership*: Token Claim Name `groups`, **Full group path off**, Add to userinfo on.
+   - *User Attribute*: User Attribute `ipaUniqueID`, Token Claim Name `ipaUniqueID`, type String, Add to userinfo on.
+4. **Realm settings → General**: "Edit username" off (the uid comes from FreeIPA).
+5. Verify: **Clients → cartei → Client scopes → Evaluate**, pick a user → *Generated user info*
+   must contain `preferred_username`, `ipaUniqueID` and `groups` (incl. `confidentiality_clearance`).
+
 ## LDAP account provisioning & email SSOT
 
 The **DB (`tenant.email`) is the source of truth** for a tenant's email; FreeIPA
@@ -241,7 +276,7 @@ human decision. Enable with `systemctl enable --now cartei-drift-check.timer`.
 ## Impersonation access
 
 Impersonation is gated by the LDAP group in `CARTEI_IMPERSONATION_GROUP`
-(default `cn=cartei_impersonation,...`). On every LDAP login `_sync_groups` maps
+(default `cn=cartei_impersonation,...`). On every login `_sync_groups` maps
 it to the `cartei_impersonation` Django group, granting/revoking by membership
 just like the other rights groups. It is a **plain group, not `is_superuser`** —
 so it confers exactly one capability and nothing implicit. Grant/revoke by
@@ -275,8 +310,8 @@ tight. Every start and stop is recorded in the append-only `impersonation_event`
 audit table.
 
 The local dev account (`seed_dev_data`) is added to this group so impersonation
-can be exercised locally; it authenticates via Django's ModelBackend, not LDAP,
-so the login sync never touches it.
+can be exercised locally; it signs in at `/dev-login/` (Django's ModelBackend,
+only with `DEBUG=true`), not Keycloak, so the login sync never touches it.
 
 ## cartei_vision (enrollment-proof auto-verification)
 
