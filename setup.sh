@@ -63,13 +63,14 @@ if command -v systemctl >/dev/null 2>&1; then
     cp "$SRV_DIR/$SERVICE_NAME.service"              "$SYSTEMD_DIR/$SERVICE_NAME.service"
     cp "$SRV_DIR/$SERVICE_NAME-update.service"       "$SYSTEMD_DIR/$SERVICE_NAME-update.service"
     cp "$SRV_DIR/$SERVICE_NAME-update.timer"         "$SYSTEMD_DIR/$SERVICE_NAME-update.timer"
-    cp "$SRV_DIR/$SERVICE_NAME-drift-check.service"  "$SYSTEMD_DIR/$SERVICE_NAME-drift-check.service"
-    cp "$SRV_DIR/$SERVICE_NAME-drift-check.timer"    "$SYSTEMD_DIR/$SERVICE_NAME-drift-check.timer"
 
     systemctl daemon-reload
     systemctl enable "$SERVICE_NAME.service"
     systemctl enable --now "$SERVICE_NAME-update.timer"
-    systemctl enable --now "$SERVICE_NAME-drift-check.timer"
+    # Email drift check was removed (FreeIPA is the email SSOT, CArtei#70) — retire it.
+    systemctl disable --now "$SERVICE_NAME-drift-check.timer" 2>/dev/null || true
+    rm -f "$SYSTEMD_DIR/$SERVICE_NAME-drift-check.service" "$SYSTEMD_DIR/$SERVICE_NAME-drift-check.timer"
+    systemctl daemon-reload
     info "Services enabled."
 else
     warn "Skipped systemd setup — run manually if needed."
