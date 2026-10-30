@@ -177,7 +177,18 @@ the tenant by `intranet_uuid`, creates it on first login, and follows uid rename
 not in `LDAP_REQUIRE_GROUP` (`confidentiality_clearance`), or an existing tenant
 has the same uid but a different uuid (fix: relink on the tenant page, admin only).
 Rights groups are matched by the **cn** of the `CARTEI_*_GROUP` DNs against the
-`groups` claim. Groups sync at login only.
+`groups` claim.
+
+**Permissions are re-checked every 15 minutes** (CArtei#69, `SessionRefresh` +
+`OIDC_RENEW_ID_TOKEN_EXPIRY_SECONDS`): the next page load after that silently
+re-authenticates against Keycloak (`prompt=none`), which re-runs the login sync —
+groups, clearance, email. So a FreeIPA group change takes effect within ~15 min.
+Refused (clearance removed, account disabled) → logged out. Keycloak session
+expired → sent to the Keycloak login, then back to the page. Consequence: a cartei
+session lives only as long as the Keycloak SSO session (realm settings →
+Sessions: *SSO Session Idle/Max*), not Django's 2-week cookie. Only page loads
+(GET) re-check; form POSTs are never interrupted. While impersonating, the
+impersonator is re-checked; the target's groups stay as of their last login.
 
 `.env`: `KEYCLOAK_REALM_URL`, `OIDC_RP_CLIENT_ID` (default `cartei`), `OIDC_RP_CLIENT_SECRET`.
 
@@ -295,7 +306,7 @@ sudo rm -f /etc/systemd/system/cartei-drift-check.{service,timer} && sudo system
 ## Impersonation access
 
 Impersonation is gated by the LDAP group in `CARTEI_IMPERSONATION_GROUP`
-(default `cn=cartei_impersonation,...`). On every login `_sync_groups` maps
+(default `cn=cartei_impersonation,...`). On every login and 15-min re-check `_sync_groups` maps
 it to the `cartei_impersonation` Django group, granting/revoking by membership
 just like the other rights groups. It is a **plain group, not `is_superuser`** —
 so it confers exactly one capability and nothing implicit. Grant/revoke by
@@ -303,8 +314,8 @@ managing FreeIPA membership; no `auth_user` edits or redeploys needed.
 
 ```bash
 ipa group-add cartei_impersonation --desc "CArtei: user impersonation"
-ipa group-add-member cartei_impersonation --users=<uid>    # grant (effective next login)
-ipa group-remove-member cartei_impersonation --users=<uid> # revoke (effective next login)
+ipa group-add-member cartei_impersonation --users=<uid>    # grant (effective within ~15 min)
+ipa group-remove-member cartei_impersonation --users=<uid> # revoke (effective within ~15 min)
 ```
 
 Membership grants exactly one thing: user impersonation. It does **not** grant
