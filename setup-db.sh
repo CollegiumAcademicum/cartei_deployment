@@ -68,7 +68,7 @@ info "Ensuring data directories exist..."
 mkdir -p data/postgres
 
 # ── 5. SELinux contexts ───────────────────────────────────────────────────────
-# The deploy dir under /srv is labelled var_t, which systemd's init_t may not
+# The deploy dir (/tank) is not labelled for systemd (init_t) to
 # read/exec — cartei-backup.service reads .env and execs backup.sh directly.
 # Relabel .env as etc_t (readable) and *.sh as bin_t (executable). Re-run this
 # script (or `restorecon -Rv $SRV_DIR`) after a git pull that adds files.
