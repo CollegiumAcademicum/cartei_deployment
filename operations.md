@@ -297,6 +297,37 @@ capability the account holds (it can set/reset user passwords); emailing a temp
 password to a new tenant is impossible without it. The password is set expired, so
 the tenant must change it on first login; CArtei receives it for onboarding delivery.
 
+### Confidentiality clearance grant (CArtei#65)
+
+Approving a Vertraulichkeitserklärung can add the tenant to the FreeIPA group
+`confidentiality_clearance` (= `LDAP_REQUIRE_GROUP`). `svc-cartei` does this via
+IPA JSON-RPC (`group_add_member` / `group_remove_member`), so it needs write on the
+`member` attribute of **that one group only**:
+
+```bash
+ipa permission-add 'CArtei Manage Clearance Members' \
+  --right=write --attrs=member \
+  --target='cn=confidentiality_clearance,cn=groups,cn=accounts,dc=intranet,dc=ca-hd,dc=de'
+ipa privilege-add-permission 'CArtei Provisioning' \
+  --permissions='CArtei Manage Clearance Members'
+```
+
+(`--type` and `--target` conflict in some versions, hence the single-group
+`--target`; verify the syntax with `ipa permission-add --help` on the server.)
+
+Who may grant: create the FreeIPA group `cartei_grant_confidentiality_clearance`,
+add the granters, and make sure the Keycloak `groups` claim carries it. Env var
+(default shown; blank falls back to it):
+
+```
+CARTEI_GRANT_CLEARANCE_GROUP=cn=cartei_grant_confidentiality_clearance,cn=groups,cn=accounts,dc=intranet,dc=ca-hd,dc=de
+```
+
+Behaviour: granting is one-shot — CArtei never re-adds the group on its own, so a
+manual removal in FreeIPA sticks. Revoking an approved Vertraulichkeitserklärung
+removes the group. Every approval is logged in the append-only
+`confidentiality_clearance_event` table.
+
 On an existing pod0, retire the old drift check once (re-running `setup.sh` does it too):
 ```bash
 sudo systemctl disable --now cartei-drift-check.timer
