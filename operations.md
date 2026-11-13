@@ -334,6 +334,38 @@ sudo systemctl disable --now cartei-drift-check.timer
 sudo rm -f /etc/systemd/system/cartei-drift-check.{service,timer} && sudo systemctl daemon-reload
 ```
 
+### AG/INI self-service (dashboard "Meine AGs")
+
+Users join and leave `ag.*` / `in.*` groups themselves from the dashboard.
+`svc-cartei` writes `member` of those groups only:
+
+```bash
+ipa permission-add 'CArtei Manage AG Members' \
+  --right=write --attrs=member \
+  --type=group \
+  --filter='(|(cn=ag.*)(cn=in.*))'
+ipa privilege-add-permission 'CArtei Provisioning' \
+  --permissions='CArtei Manage AG Members'
+```
+
+Check as `svc-cartei` (`kinit svc-cartei`): `ipa group-add-member ag.<x> --users=<test>`
+works, the same on a `gr.*` group or `admins` is refused.
+
+FreeIPA can only scope *which groups*, not *which user*: "only your own
+membership" and "never a rights group" are CArtei checks. Therefore:
+
+- **Never give a rights group an `ag.`/`in.` name.** CArtei refuses any group named
+  in a `CARTEI_*_GROUP`, `LDAP_REQUIRE_GROUP` or `TENANT_GROUP_*` setting anyway,
+  but FreeIPA would let svc-cartei write it.
+- **Keycloak LDAP federation cache** must stay `MAX_LIFESPAN` with a short lifespan
+  (1000 ms), or the 15-min silent re-check can revert a self-service change from a
+  stale `memberOf`.
+- `LDAP_SERVER_URI` and `IPA_SERVER` should point at the same FreeIPA server:
+  CArtei re-reads `memberOf` right after the write, and replica lag shows up as
+  "FreeIPA meldet die Änderung, aber …".
+
+Every join/leave is logged in the append-only `ag_membership_event` table.
+
 ## Impersonation access
 
 Impersonation is gated by the LDAP group in `CARTEI_IMPERSONATION_GROUP`
