@@ -98,6 +98,13 @@ Remove the units/timers/Quadlet from `/etc/systemd/system` and `/etc/containers/
 - *Claude's call:* pod0's Caddy loses its `cartei.ca-hd.de` block **at switchover** (not after 7 days), so it doesn't fail ACME renewals. Rollback re-adds it.
 - *Claude's call:* the prep phase checks from the VM that R2 (`rclone lsf`) and the SMTP port are reachable, before any downtime.
 
+### SavaPage (found in pre-flight)
+
+SavaPage (`savapage_deployment`, pod0) keeps its `savapage` database + role inside CArtei's Postgres and joins `cartei_default`; `savapage.service` has `Requires=cartei-db.service`. It isn't in use yet (user, 2026-11-25). Decision: **remove it from the CArtei DB.**
+- Switchover step 1 also runs `systemctl disable --now savapage.service` on pod0.
+- After step 3, on the VM: `DROP DATABASE savapage; DROP ROLE savapage;` in the copied cluster.
+- Follow-up outside this project: before go-live, SavaPage needs its own Postgres on pod0 (`savapage_deployment`: own `postgres:16` service, `DB_HOST`, drop the `cartei-db` dependency).
+
 ## Left to the builder
 
 Exact command order within each phase, the wording of doc updates, and how the row-count check is phrased.
