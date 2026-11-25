@@ -55,7 +55,7 @@ fi
 
 # ── 4. data directories ───────────────────────────────────────────────────────
 info "Ensuring data directories exist..."
-mkdir -p data/postgres
+mkdir -p data/postgres data/caddy
 
 # ── 5. systemd services ──────────────────────────────────────────────────────
 if command -v systemctl >/dev/null 2>&1; then

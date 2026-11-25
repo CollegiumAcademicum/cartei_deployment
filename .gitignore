@@ -3,3 +3,4 @@ data/postgres/
 rclone.conf
 *-key.txt
 .idea/
+data/caddy/
