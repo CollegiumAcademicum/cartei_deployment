@@ -1,6 +1,7 @@
-# Runs on pod0 next to docker-compose.db.yaml. Postgres is reached by container
-# name over cartei_default (created by cartei-db.service); Caddy (/tank/caddy)
-# reverse-proxies to cartei_app_1:8000 over systemd-caddy.
+# Runs on the cartei VM next to docker-compose.db.yaml. Postgres is reached by
+# container name over cartei_default (created by cartei-db.service). The app
+# listens on 127.0.0.1:8000 only; Caddy runs on the host network so the VM's
+# firewalld zone filters 80/443 (ports published by podman would bypass it).
 services:
   migrate:
     image: ghcr.io/collegiumacademicum/cartei-db:latest
@@ -12,17 +13,23 @@ services:
     env_file: .env
     volumes:
       - ./certs:/app/certs:ro,z
-    networks:
-      - default
-      - caddy
+    ports:
+      - "127.0.0.1:8000:8000"
     depends_on:
       - migrate
+    restart: unless-stopped
+
+  caddy:
+    image: docker.io/library/caddy:2
+    network_mode: host
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro,z
+      - ./data/caddy:/data:z
+    depends_on:
+      - app
     restart: unless-stopped
 
 networks:
   default:
     name: cartei_default
-    external: true
-  caddy:
-    name: systemd-caddy
     external: true

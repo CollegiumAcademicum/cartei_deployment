@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Bootstrap script for pod0 — run once on a fresh server.
+# Bootstrap script for the cartei VM — run once on a fresh server.
 # Can be executed before the repo exists:
 #   curl -fsSL https://raw.githubusercontent.com/CollegiumAcademicum/cartei_deployment/main/setup-db.sh | bash
 set -euo pipefail

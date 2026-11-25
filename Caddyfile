@@ -1,0 +1,7 @@
+{
+	email it@ca-hd.de
+}
+
+cartei.ca-hd.de {
+	reverse_proxy 127.0.0.1:8000
+}

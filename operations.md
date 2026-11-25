@@ -1,21 +1,26 @@
 # CArtei — Operations
 
 Runbook for deploying and running CArtei. Runtime is **Podman + systemd** on
-one VM, **pod0** (`10.10.1.200`). All commands assume the deploy dir `/tank/cartei` (symlinked `~/cartei`).
+one dedicated VM, **cartei** (`cartei.intranet.ca-hd.de`, `10.10.1.131`; moved from pod0 on 2026-11-25). Only `admins`, `cartei_admin` and `core` can log in. All commands assume the deploy dir `/tank/cartei` (symlinked `~/cartei`).
 
 ## Architecture
 
 | systemd unit | Runs | Compose file |
 |--------------|------|--------------|
 | `cartei-db.service` | PostgreSQL 16 | `docker-compose.db.yaml` |
-| `cartei.service` | `migrate` container (Alembic), then `app` (Django + gunicorn) | `docker-compose.yaml` |
+| `cartei.service` | `migrate` container (Alembic), then `app` (Django + gunicorn), then `caddy` (TLS) | `docker-compose.yaml` |
 
 `cartei.service` requires `cartei-db.service`. Both compose projects share the
 `cartei_default` network (created by the DB compose); the app reaches Postgres
 as `cartei_postgres_1:5432`. Postgres publishes 5432 on `127.0.0.1` only (for
-`cartei-vision`, `Network=host`). TLS terminates at the shared **Caddy** on pod0
-(`/tank/caddy/Caddyfile`, network `systemd-caddy`), which proxies to
-`cartei_app_1.dns.podman:8000`.
+`cartei-vision`, `Network=host`). The app publishes 8000 on `127.0.0.1` only.
+TLS terminates at the VM's own **Caddy** (`caddy` service, `Caddyfile` in this
+repo, certs in `data/caddy`), which runs on the **host network** and proxies to
+`127.0.0.1:8000`. Host networking is deliberate: ports published by Podman are
+DNAT'd by netavark's own nftables rules and bypass the VM's firewalld zone
+(`cartei-internal`: 22/80/443 only from 10.1.0.0/16 and 10.10.0.0/16), while
+Caddy's own sockets are filtered by it. The cert comes from Let's Encrypt via
+HTTP-01 through the ingress.
 
 The `app` container depends on `migrate`: on every start, `migrate` runs the
 `cartei_db` Alembic migrations to `head`, then `app` boots. App images come
@@ -27,7 +32,7 @@ stock `docker.io/postgres:16`.
 Inbound HTTPS is routed by the org **ingress VM** (`10.10.0.12`) using nginx
 `stream` + `ssl_preread` — a layer-4 SNI passthrough that never decrypts TLS and
 opens a fresh TCP connection to the backend. So it cannot set `X-Forwarded-For`,
-and every downstream (including the Caddy on pod0 where cartei's TLS
+and every downstream (including the Caddy on the cartei VM where TLS
 terminates) sees the source IP as the ingress, `10.10.0.12`. That is why the
 admin session list shows `10.10.0.12` for every session — the real client IP is
 lost at the ingress and no app behind it can recover it.
@@ -60,8 +65,9 @@ nano /tank/cartei/.env          # fill every CHANGE_ME
 podman compose -f docker-compose.db.yaml pull && systemctl start cartei-db.service
 podman compose pull && systemctl start cartei.service
 ```
-Then add the site to `/tank/caddy/Caddyfile` (`<host> { reverse_proxy http://cartei_app_1.dns.podman:8000 }`,
-`<host>` matching `ALLOWED_HOSTS`) and reload Caddy.
+The host name in `Caddyfile` must match `ALLOWED_HOSTS`, and the ingress must route
+it (ports 443 and 80) to this VM before `cartei.service` first starts, so Caddy's
+first certificate request succeeds.
 
 `setup-db.sh` installs the backup + vision timers, `setup.sh` the update timer.
 
@@ -98,14 +104,14 @@ DATABASE_URL=... uv run alembic upgrade head
 
 ## Backups
 
-Runs on **pod0**. `cartei-backup.timer` fires `backup.sh` **daily at 03:30**
+Runs on the **cartei VM**. `cartei-backup.timer` fires `backup.sh` **daily at 03:30**
 (`cartei-backup.service`, config loaded from `.env`). Each run:
 
 ```
 pg_dump → gzip → age -r $AGE_RECIPIENT → /var/backup/cartei/<ts>.sql.gz.age → rclone → R2
 ```
 
-- Encrypted with **age** (asymmetric): pod0 holds only the *public* key, so a
+- Encrypted with **age** (asymmetric): the VM holds only the *public* key, so a
   compromised server or R2 bucket cannot decrypt any backup. Only the offline
   private key can. Encryption is **mandatory** — if `AGE_RECIPIENT` is unset the
   backup aborts rather than writing plaintext.
@@ -123,10 +129,10 @@ Self-check (age round-trip + prune logic, no DB/R2): `./test-backup.sh`
 age-keygen -o cartei-backup-key.txt          # store this file in a password manager
 ```
 Copy the `# public key: age1...` value into `AGE_RECIPIENT` in `/tank/cartei/.env`
-on pod0. The private key file never touches the server.
+on the VM. The private key file never touches the server.
 
 **2. Cloudflare R2** — create a bucket and an R2 API token (Object Read & Write),
-then configure the rclone remote on pod0. Either copy the template:
+then configure the rclone remote on the VM. Either copy the template:
 ```bash
 cp /tank/cartei/rclone.conf.example /tank/cartei/rclone.conf   # fill in token + endpoint
 chmod 600 /tank/cartei/rclone.conf
@@ -246,7 +252,7 @@ Mietverwaltung creates the tenant first, then provisions a FreeIPA account from
 the DB row via the "Intranet-Account anlegen" button (CArtei → IPA JSON-RPC,
 `app/ldap_utils.provision_ldap_account`), which sets FreeIPA `mail` from
 `tenant.email`. Admins can instead link an existing account on the tenant page
-("Verknüpfen"). Provisioning and the email write-through need these `.env` vars on pod0:
+("Verknüpfen"). Provisioning and the email write-through need these `.env` vars on the VM:
 
 ```
 IPA_SERVER=ipa.intranet.ca-hd.de
@@ -328,7 +334,7 @@ manual removal in FreeIPA sticks. Revoking an approved Vertraulichkeitserklärun
 removes the group. Every approval is logged in the append-only
 `confidentiality_clearance_event` table.
 
-On an existing pod0, retire the old drift check once (re-running `setup.sh` does it too):
+On an existing install, retire the old drift check once (re-running `setup.sh` does it too):
 ```bash
 sudo systemctl disable --now cartei-drift-check.timer
 sudo rm -f /etc/systemd/system/cartei-drift-check.{service,timer} && sudo systemctl daemon-reload
@@ -408,12 +414,12 @@ only with `DEBUG=true`), not Keycloak, so the login sync never touches it.
 
 ## cartei_vision (enrollment-proof auto-verification)
 
-Runs on **pod0** as a nightly one-shot Podman Quadlet, installed by
+Runs on the **cartei VM** as a nightly one-shot Podman Quadlet, installed by
 `setup-db.sh` (`cartei-vision.container` → generated `cartei-vision.service`,
 fired by `cartei-vision.timer` at 04:30). Image:
 `ghcr.io/collegiumacademicum/cartei-vision:latest` (built from `cartei_vision` +
 `cartei_db` by that repo's `docker.yaml` workflow). The quadlet sets
-`Pull=newer`, so each nightly run pulls a fresh image itself — pod0 needs
+`Pull=newer`, so each nightly run pulls a fresh image itself — the VM needs
 no update timer. Trust anchors are baked into the image; no host trust dir is
 needed.
 
