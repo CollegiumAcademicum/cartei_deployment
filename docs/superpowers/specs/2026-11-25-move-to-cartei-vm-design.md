@@ -1,6 +1,6 @@
 # Move CArtei from pod0 to the cartei VM — design
 
-Date: 2026-11-25 · Status: draft, awaiting approval
+Date: 2026-11-25 · Status: done — switched over 2026-11-25 ~14:15
 
 ## Why
 
